@@ -123,6 +123,9 @@ Now write a bash script which repeats the following cycle of steps for 99 times:
 1. Completed `edit_and_commit.sh`
 2. Answer to the question above
 
+After executing, check the disk space usage of the git_experiement folder, the usage of git_experiement folder is 364K. However, the total size of the individual files is 76K. The size of folder is not the same as the individual file. This is because the total size of the individual files is only counting the file size, however, the disk space usage of the git_experiement folder not only includes the individual files, but also including other files including history and log file that executing the bash and store the results, which requests more memory. 
+
+This explains why github discourages you from commiting large binary files. If binary file is large, the memory required not only includes the file itself, but also the hidden files including history and log files, results in 5 or more times space usage. To ensure overall repository health and not impacts the git infrastructure too much, github discourages you from commiting large binary files.
 
 
 # Exercise 2: Setting up an R package skeleton
@@ -138,3 +141,5 @@ Set up your own version of the `hiperglm` package as we discussed in the class a
 ## Things to commit and submit
 
 Hyperlink to the `hiperglm` repository on your Github account
+
+https://github.com/jfsong100/hiperglm.git
