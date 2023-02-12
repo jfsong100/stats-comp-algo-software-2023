@@ -116,16 +116,16 @@ Now write a bash script which repeats the following cycle of steps for 99 times:
 
 **Question:** Does the size of the folder look reasonable relative to the sizes of the individual files inside it? (Use `ls -l -h` to list the files with the size info; `-l` is for "long.") If not, why would that be? How would this explain why [Github discourages you from commiting (large) binary files](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github)?
 
-**Your answer:** (To be filled.)
+**Your answer:** (See the following answers.)
 
 ## Things to commit and submit
 
 1. Completed `edit_and_commit.sh`
 2. Answer to the question above
 
-After executing, check the disk space usage of the git_experiement folder, the usage of git_experiement folder is 364K. However, the total size of the individual files is 76K. The size of folder is not the same as the individual file. This is because the total size of the individual files is only counting the file size, however, the disk space usage of the git_experiement folder not only includes the individual files, but also including other files including history and log file that executing the bash and store the results, which requests more memory. 
+After executing, check the disk space usage of the git_experiement folder, the usage of git_experiement folder is 4M. However, the total size of the individual files is 123K. The size of folder is much larger than the individual file. This is because the total size of the individual files is only counting the file size, however, the disk space usage of the git_experiement folder not only includes the individual files, but also including other files including history and log file that executing the bash and store the results, which requests more memory. For each time in the loop, git will keep recording the changes and histories. 
 
-This explains why github discourages you from commiting large binary files. If binary file is large, the memory required not only includes the file itself, but also the hidden files including history and log files, results in 5 or more times space usage. To ensure overall repository health and not impacts the git infrastructure too much, github discourages you from commiting large binary files.
+This explains why github discourages you from commiting large binary files. If binary file is large, the memory required not only includes the file itself, but also the hidden files including history and log files, results in 40 or more times space usage. To ensure overall repository health and not impacts the git infrastructure too much, github discourages you from commiting large binary files.
 
 
 # Exercise 2: Setting up an R package skeleton
