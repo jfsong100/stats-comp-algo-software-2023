@@ -1,6 +1,8 @@
 ---
 title: 'Homework: Numerical linear algebra'
 output:
+  html_document:
+    df_print: paged
   html_notebook:
     code_folding: none
     highlight: textmate
@@ -43,11 +45,15 @@ What are relative speeds among the algorithms?
 Do relative speeds agree with what you expect from the complexity analyses?
 If not (quite), why might that be?
 
+Based on the comparison results using median execution time, the fastest algorithm is solve (using LU decompostion), followed by solve via Cholesky and QR decomposition. 
+
+The relative speeds are not under expectation. Since the overall cost of solving $Ax=b$ via Cholesky is $O(\frac{1}{3}p^3)$, via QR decomp is $O(2np^2)$ and solve a linear system (LU) may requires $O(\frac{2}{3}p^2)$. However, solve function is faster than solving $Ax=b$ via Cholesky. The speed from fastest to slowest is solve (LU) > Cholesky > QR decomposition. Since QR decomp is $O(2np^2)$ cost, it is fair to be the slowest. However, the solve (LU) is faster than Cholesky may be due to that during solve function (LU), only A and b are input into LAPACK routine function, however, we store Cholesky output and R function is not as fast as directly using LAPACK routine library. 
+
 **Note:**
 I misspoke about the R's built-in `chol()` function during the lecture:
 when applied to a positive-definite `A`, the function actually returns an _upper-triangular_ matrix `R` such that `t(R) %*% R == A`.
 
-```{r, eval=FALSE}
+```{r, eval=T}
 # Import the `rand_positive_def_matrix` function
 source(file.path("R", "random_matrix.R"))
 
@@ -56,7 +62,9 @@ A <- rand_positive_def_matrix(mat_size, cond_num = 1e3)
 b <- rnorm(mat_size)
 
 solve_via_cholesky <- function(A, b) {
-  # Fill in
+  R = chol(A)
+  x = backsolve(R, forwardsolve(R, b, upper.tri = T, transpose = T))
+  return(x)
 }
 
 bench::mark(
@@ -67,6 +75,7 @@ bench::mark(
 )
 bench::mark(
   # Solve via QR decomposition
+  qr.solve(A, b)
 )
 ```
 
@@ -88,7 +97,9 @@ What is the relative difference in $\ell^2$-norm?
 How about the coordinate-wise relative differences?
 Are the observed magnitudes of the differences what you'd expect?
 
-```{r, eval=FALSE}
+The relative difference in $\ell^2$-norm is 1.185409e-15, the summary of the coordinate-wise relative differences is as follows. Since we use long double, additional 12 bits of precision, using two ways to calculate the same thing will give a different result, and based on the machine precision, it reflects at the level of around $10^{-15}$ and $10^{-16}$.
+
+```{r, eval=T}
 Rcpp::sourceCpp(file.path("src", "matvec_double.cpp"))
 Rcpp::sourceCpp(file.path("src", "matvec_ldouble.cpp"))
 
@@ -99,7 +110,12 @@ A <- rand_positive_def_matrix(mat_size, cond_num = 1e3)
 x <- rnorm(mat_size)
 
 # Fill in
+double_result = matvec_double(A,x)
+ldouble_result = matvec_ldouble(A,x)
 
+sqrt(sum((double_result - ldouble_result)^2)/sum(ldouble_result^2))
+
+summary((double_result - ldouble_result)/ldouble_result)
 ```
 
 ### Task &#x2F06;
@@ -111,7 +127,9 @@ Then solve a positive-definite system $\bA \bx = \bb$ for $\bx$ using the three 
 Which algorithm appears to be more accurate than the others? 
 Visually demonstrate your answer.
 
-```{r, eval=FALSE}
+From the plot, we could see the solve is more accurate than cholesky decompostion, the worst is QR decomposition.
+
+```{r, eval=T}
 set.seed(1918)
 cond_num <- 1e6
 
@@ -122,6 +140,21 @@ A <- rand_positive_def_matrix(mat_size, cond_num)
 x <- rnorm(mat_size)
 
 # Fill in
+b = matvec_ldouble(A,x)
+
+solve_diff = solve(A, b) - x
+
+cholesky_diff = solve_via_cholesky(A, b)- x
+
+qr_diff = qr.solve(A, b) - x
+
+library(ggplot2)
+data_plot = data.frame(diff=c(solve_diff,cholesky_diff,qr_diff),
+                       x=x,
+                       algorithm = c(rep("solve",mat_size),
+                                     rep("cholesky",mat_size),
+                                     rep("QR",mat_size)))
+ggplot(data = data_plot, aes(x=x,y=diff,group = algorithm,color=algorithm))+geom_point()
 
 ```
 
@@ -139,18 +172,23 @@ We also vary the condition number of $\bA$ and assess whether the results would 
 * Vary the condition number in the range $10^6 \sim 10^{12}$, e.g. by trying $10^6$, $10^9$, and $10^{12}$.
 * Do you see any patterns in the numerical errors across the three algorithms, metrics, and/or condition numbers? Show some plots to support your conclusion.
 
+(1) Within the same condition numbers, different metrics give similar results when comparing three algorithms, and we can see QR has a largest relative error, solve function and choleksy decomposition give a similar result, but choleksy decomposition may give a slightly larger error than solve function.
+
+(2) For larger condition number, all three algorithms have larger relative error comparing with the smaller condition number, this can be seen based on the magnitude of the y-axis. 
+
+
 **Note:** 
 The QR solver will throw an error when the system is ill-condition enough that the numerical solution might not be very accurate. 
 To force it to return the solution in any case, set `tol = .Machine$double.eps`.
 
-```{r, eval=FALSE}
+```{r, eval=T}
 # Utility functions for bookkeeping simulation results.
 source(file.path("R", "num_linalg_sim_study_helper.R"))
 
 n_sim <- 32L
 mat_size <- 512L
 cond_num <- 1e6
-metrics <- c("norm", "median", "five_percentile", "ninety_five_percentile")
+metrics <- c("norm", "median", "five_percentile", "ninety_five_percentile", "average")
   # TODO: add another metric and modify the helper script accordingly
 
 rel_error_list <- lapply(
@@ -163,7 +201,9 @@ for (sim_index in 1:n_sim) {
   x <- rnorm(mat_size) 
   b <- matvec_ldouble(A, x)
   x_approx <- list( 
-    # Fill in
+    lu = solve(A, b),
+    chol = solve_via_cholesky(A, b),
+    qr = qr.solve(A, b)
   )
   for (method in c("lu", "chol", "qr")) {
     rel_error <- lapply(
@@ -178,5 +218,139 @@ for (sim_index in 1:n_sim) {
 }
 
 # TODO: visually compare errors
+plot_compare <- function(metric){
+  data_plot = data.frame(value=c(rel_error_list[["lu"]][[metric]],
+                               rel_error_list[["chol"]][[metric]],
+                               rel_error_list[["qr"]][[metric]]),
+                       id=rep(seq(1,n_sim,1),3),
+                       algorithm = c(rep("lu",n_sim),
+                                     rep("chol",n_sim),
+                                     rep("qr",n_sim)))
+ p = ggplot(data = data_plot, 
+            aes(x=id,y=value,group =algorithm,color=algorithm))+geom_point()
+ return(p)
+}
+
+plot_compare("norm")
+plot_compare("median")
+plot_compare("five_percentile")
+plot_compare("ninety_five_percentile")
+plot_compare("average")
+
+```
+
+```{r, eval=T}
+# Utility functions for bookkeeping simulation results.
+source(file.path("R", "num_linalg_sim_study_helper.R"))
+
+n_sim <- 32L
+mat_size <- 512L
+cond_num <- 1e9
+metrics <- c("norm", "median", "five_percentile", "ninety_five_percentile", "average")
+  # TODO: add another metric and modify the helper script accordingly
+
+rel_error_list <- lapply(
+  c("lu", "chol", "qr"), 
+  function(method) pre_allocate_error_list(n_sim, metrics)
+)
+
+for (sim_index in 1:n_sim) {
+  A <- rand_positive_def_matrix(mat_size, cond_num)
+  x <- rnorm(mat_size) 
+  b <- matvec_ldouble(A, x)
+  x_approx <- list( 
+    lu = solve(A, b),
+    chol = solve_via_cholesky(A, b),
+    qr = qr.solve(A, b, tol = .Machine$double.eps)
+  )
+  for (method in c("lu", "chol", "qr")) {
+    rel_error <- lapply(
+      metrics, 
+      function (metric) calc_rel_error(x, x_approx[[method]], metric)
+    )
+    names(rel_error) <- metrics
+    for (metric in names(rel_error)) {
+      rel_error_list[[method]][[metric]][sim_index] <- rel_error[[metric]]
+    }
+  }
+}
+
+# TODO: visually compare errors
+plot_compare <- function(metric){
+  data_plot = data.frame(value=c(rel_error_list[["lu"]][[metric]],
+                               rel_error_list[["chol"]][[metric]],
+                               rel_error_list[["qr"]][[metric]]),
+                       id=rep(seq(1,n_sim,1),3),
+                       algorithm = c(rep("lu",n_sim),
+                                     rep("chol",n_sim),
+                                     rep("qr",n_sim)))
+ p = ggplot(data = data_plot, 
+            aes(x=id,y=value,group =algorithm,color=algorithm))+geom_point()
+ return(p)
+}
+
+plot_compare("norm")
+plot_compare("median")
+plot_compare("five_percentile")
+plot_compare("ninety_five_percentile")
+plot_compare("average")
+
+```
+
+```{r, eval=T}
+# Utility functions for bookkeeping simulation results.
+source(file.path("R", "num_linalg_sim_study_helper.R"))
+
+n_sim <- 32L
+mat_size <- 512L
+cond_num <- 1e12
+metrics <- c("norm", "median", "five_percentile", "ninety_five_percentile", "average")
+  # TODO: add another metric and modify the helper script accordingly
+
+rel_error_list <- lapply(
+  c("lu", "chol", "qr"), 
+  function(method) pre_allocate_error_list(n_sim, metrics)
+)
+
+for (sim_index in 1:n_sim) {
+  A <- rand_positive_def_matrix(mat_size, cond_num)
+  x <- rnorm(mat_size) 
+  b <- matvec_ldouble(A, x)
+  x_approx <- list( 
+    lu = solve(A, b),
+    chol = solve_via_cholesky(A, b),
+    qr = qr.solve(A, b, tol = .Machine$double.eps)
+  )
+  for (method in c("lu", "chol", "qr")) {
+    rel_error <- lapply(
+      metrics, 
+      function (metric) calc_rel_error(x, x_approx[[method]], metric)
+    )
+    names(rel_error) <- metrics
+    for (metric in names(rel_error)) {
+      rel_error_list[[method]][[metric]][sim_index] <- rel_error[[metric]]
+    }
+  }
+}
+
+# TODO: visually compare errors
+plot_compare <- function(metric){
+  data_plot = data.frame(value=c(rel_error_list[["lu"]][[metric]],
+                               rel_error_list[["chol"]][[metric]],
+                               rel_error_list[["qr"]][[metric]]),
+                       id=rep(seq(1,n_sim,1),3),
+                       algorithm = c(rep("lu",n_sim),
+                                     rep("chol",n_sim),
+                                     rep("qr",n_sim)))
+ p = ggplot(data = data_plot, 
+            aes(x=id,y=value,group =algorithm,color=algorithm))+geom_point()
+ return(p)
+}
+
+plot_compare("norm")
+plot_compare("median")
+plot_compare("five_percentile")
+plot_compare("ninety_five_percentile")
+plot_compare("average")
 
 ```

@@ -54,6 +54,10 @@ for (i in 1:10^6) {
 **Questions:**
 What behavior do you observe above? How do you explain it?
 
+Most of the time I got 1022, and sometimes I got 1023, and sometimes I got Inf. 
+
+In C++ language, the initial index begins from 0, from 0 to 1022, there are number of 1023 numbers. But from index 1, there is no 1024 element in the vector. 
+
 
 ## Part B: Sloppy matrix-matrix multiplication
 
@@ -79,6 +83,8 @@ dgemm_eigen(A, B)
 
 **Questions:**
 What do you get as an output? What if you re-run the code chunk? Explain the observed behavior.
+
+It return two columns, the first column is always a vector of length 4, each element is 1024. Sometimes it will return NA or very large values in the second column or 512. Because C++ doesn't check the dimension of the input, whether the matrix inputs are compatible or not, it will still do the calculation and give the output. 
 
 ## Part C: Consequence of "tresspassing"
 
@@ -113,7 +119,13 @@ Running the same piece of code from an R console (instead of an RStudio session)
 * Why does the second code chunk run fine?
 * Modify `axpy_c.cpp` to make the function safer to use.
 
+(1) Running the first code chunk, the R session will be aborted. It is due to the length of X is longer than y, so to call y[i] will be out of bound if i is larger than the size of y.
 
+(2) Running the second code chunk, since the length of X is shorter than y, so only the size of x will be called, will not be out of bound.
+
+```{r}
+cat(readLines(file.path("src", "axpy_c.cpp")), sep = '\n')
+```
 # Exercise 3: Multiplying two matrices ain't quite what you learned in your linear algebra class
 
 ## Part A: Paying homage to your linear algebra teacher
@@ -127,11 +139,11 @@ So a conceptually natural way to implement a matrix multiplication is looping th
 Implement a matrix-matrix multiplication based on this approach as `row_col_dot_matmat` using the starter code provided in the `matmat.cpp` file.
 Then check that its output agrees with the base R matrix multiplication.
 
-```{r, eval=FALSE}
+```{r, eval=T}
 Rcpp::sourceCpp(file.path("src", "matmat.cpp"))
 ```
 
-```{r, eval=FALSE}
+```{r, eval=T}
 n_row_out <- 1024L
 n_inner <- 2048L
 n_col_out <- 512L
@@ -141,6 +153,9 @@ B <- matrix(rnorm(n_inner * n_col_out), nrow = n_inner, ncol = n_col_out)
 
 ```{r}
 # Check the output of `row_col_dot_matmat`
+row_cal = row_col_dot_matmat(A, B)
+diff = as.vector(row_cal - A %*% B)
+summary(diff)
 ```
 
 ## Part B: Going one step beyond your linear algebra class
@@ -151,8 +166,21 @@ Recalling from lecture that "column-oriented" matrix-vector multiplication is mo
 Then compare performances of `row_col_dot_matmat` and `col_oriented_matmat` (but only after you test your column-oriented implementation).
 Which one is faster and why?
 
+**Answer**: By comparing the two results, using row oriented is slower (27s), but column oriented is faster (183 ms). This is because how the c++ stores the matrix as the row array. But R store the arrays as the column direction. 
+
+For the second question, comparing with R function via `%*%` in R, col oriented is still faster. 
+
+
 ```{r}
 # Check and benchmark
+col_cal = col_oriented_matmat(A, B)
+diff_col = as.vector(col_cal - A %*% B)
+summary(diff_col)
+
+bench::mark(row_col_dot_matmat(A, B))
+
+bench::mark(col_oriented_matmat(A, B))
+
 ```
 
 Also compare with performance of the matrix-matrix multiplication via `%*%` in R, which uses whatever the BLAS library your R was configured with.
@@ -160,6 +188,7 @@ Also compare with performance of the matrix-matrix multiplication via `%*%` in R
 
 ```{r}
 # Fill in
+bench::mark(A%*%B)
 ```
 
 When benchmarking alternative implementations (or alternative algorithms, more generally), keep in mind that the relative performance depends significantly on the size of a test problem.
@@ -208,12 +237,21 @@ Selectively turn on and off SSE, AVX, and FMA to see how each option affects the
 Finally, turn on both AVX and FMA and check the resulting performances.
 Report what you find.
 
-```{r, warning=FALSE, eval=FALSE}
+**Answer**: Based on my computer output, there is no difference after I change the code trying to turned on or turned off the SSE, AVX, and FMA. All the results show a time around 60ms. This may be due to M1 chip doesn't support SSE, AVX, and FMA optimization compilers. 
+
+```{r, warning=FALSE, eval=T, message=FALSE, include=FALSE}
 # Import `dgemm_eigen()` from lecture
-Rcpp::sourceCpp(file.path("..", "lecture", "src", "gemm_eigen.cpp"))
+Rcpp::sourceCpp(file.path("..", "lecture", "src", "gemm_eigen.cpp"),rebuild = TRUE)
 ```
 
-```{r, eval=FALSE}
+```{r, eval=T}
 # Benchmark
-dgemm_eigen(A, B)
+bench::mark(dgemm_eigen(A, B))
+
+bench::mark(row_col_dot_matmat(A, B))
+
+bench::mark(col_oriented_matmat(A, B))
+
+bench::mark(A%*%B)
+
 ```
