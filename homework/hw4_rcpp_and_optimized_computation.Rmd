@@ -237,7 +237,25 @@ Selectively turn on and off SSE, AVX, and FMA to see how each option affects the
 Finally, turn on both AVX and FMA and check the resulting performances.
 Report what you find.
 
-**Answer**: Based on my computer output, there is no difference after I change the code trying to turned on or turned off the SSE, AVX, and FMA. All the results show a time around 60ms. This may be due to M1 chip doesn't support SSE, AVX, and FMA optimization compilers. 
+**Answer**: Using cluster, if we shut down all the optimization compilers, it takes longest time across all the algorithms. There is slightly difference using different optimization compilers for col_directed matrix calculation, row_directed matrix calculation and using R `%*%`. But for dgemm_eigen(), if we open AVX, the time decreases a lot. 
+
+Across all the algorithms, row_directed matrix calculation is still lowest. 
+
+```{r}
+output_option = c("none","AVX","SSE","AVX and FMA","SSE, AVX and FMA")
+output_dgemm_time = c("170 ms","72 ms","148 ms","58 ms","55 ms")
+output_row_time = c("24 s","23.5 s","23.6 s","23.8 s","23.7 s")
+output_col_time = c("946 ms","942 ms","957 ms","941 ms","975 ms")
+output_R_fun_time = c("739 ms","733 ms","702 ms","703 ms","721 ms")
+
+data.frame(output_option = output_option,
+           dgemm = output_dgemm_time,
+           row = output_row_time,
+           col = output_col_time,
+           R_fun = output_R_fun_time)
+
+```
+
 
 ```{r, warning=FALSE, eval=T, message=FALSE, include=FALSE}
 # Import `dgemm_eigen()` from lecture
@@ -255,3 +273,6 @@ bench::mark(col_oriented_matmat(A, B))
 bench::mark(A%*%B)
 
 ```
+
+
+
